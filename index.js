@@ -41,7 +41,7 @@ Controls (multi mode):
 }
 
 if (OPT_OUTPUT_VERSION) {
-  process.stdout.wripe(`
+  process.stdout.write(`
 ${ package.version }
 `);
   return;
