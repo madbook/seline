@@ -1,6 +1,6 @@
 {
   "name": "seline",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Tool for interactively selecting input lines",
   "main": "index.js",
   "scripts": {
