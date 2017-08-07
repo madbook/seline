@@ -7,10 +7,14 @@ const package = require('./package.json');
 
 const fullArgs = process.argv.join(' ');
 
-const OPT_OUTPUT_HELP = / -h\b| --help\b/.test(fullArgs);
-const OPT_OUTPUT_INDEX = / -i\b/.test(fullArgs);
-const OPT_MULTILINE = / -m\b/.test(fullArgs);
-const OPT_OUTPUT_VERSION = / --version\b/.test(fullArgs);
+const READING_FROM_PIPE = !process.stdin.isTTY;
+const WRITING_TO_PIPE = !process.stdout.isTTY;
+const CALLED_VIA_CLI = require.main === module;
+
+let OPT_OUTPUT_HELP = / -h\b| --help\b/.test(fullArgs);
+let OPT_OUTPUT_INDEX = / -i\b/.test(fullArgs);
+let OPT_MULTILINE = / -m\b/.test(fullArgs);
+let OPT_OUTPUT_VERSION = / --version\b/.test(fullArgs);
 
 if (OPT_OUTPUT_HELP) {
   process.stdout.write(`
@@ -56,8 +60,8 @@ const ACTIONS = {
   'c': 'continue',
 };
 
-const ttyin = new tty.ReadStream(fs.openSync('/dev/tty', 'r'));
-const ttyout = new tty.WriteStream(fs.openSync('/dev/tty', 'w'));
+let ttyin;
+let ttyout;
 
 const getRows = () => ttyout.rows || process.stdout.rows || 10;
 const getCols = () => ttyout.columns || process.stdout.columns || 50;
@@ -73,15 +77,42 @@ let selected = 0;
 let multiSelectedOptions = {};
 let rowOffset = 0;
 let options;
+let progResolve;
 
-main();
+if (CALLED_VIA_CLI) {
+  cliMain();
+} else {
+  module.exports = async function(passedOptions, flags) {
+    if (progResolve !== undefined) {
+      throw new Error('seline already in use!');
+    }
 
-async function main() {
+    options = passedOptions;
+
+    if (flags) {
+      if (flags.multiline) OPT_MULTILINE = flags.multiline;
+      if (flags.outputIndex) OPT_OUTPUT_INDEX = flags.outputIndex;
+    }
+
+    return new Promise((resolve, reject) => {
+      progResolve = resolve;
+      main();
+    });
+  };
+}
+
+async function cliMain() {
   options = await readOptions();
+  main();
+}
+
+function main() {
+  ttyin = new tty.ReadStream(fs.openSync('/dev/tty', 'r'));
+  ttyout = new tty.WriteStream(fs.openSync('/dev/tty', 'w'));
   writeScreen();
   ttyin.setRawMode(true);
   readline.emitKeypressEvents(ttyin);
-  ttyin.on('keypress', handleInput);
+  ttyin.on('keypress', handleInput);  
 }
 
 async function readOptions() {
@@ -154,11 +185,29 @@ function end(output) {
   readline.moveCursor(ttyout, 0, -height);
   readline.clearScreenDown(ttyout);
 
-  if (output) {
-    process.stdout.write(output);
+  if (CALLED_VIA_CLI) {
+    if (output) {
+      process.stdout.write(`${output}\n`);
+    }
+  } else {
+    progResolve(output);
+    options = undefined;
+    progResolve = undefined;
+    OPT_MULTILINE = false;
+    OPT_OUTPUT_INDEX = false;
   }
 
-  process.exit();
+  if (CALLED_VIA_CLI) {
+    process.exit();
+  } else {
+    try {
+      ttyin.destroy();
+      ttyout.destroy();
+    } catch (err) {
+      console.warn('Could not destroy tty streams! Killing process');
+      process.exit(); 
+    }
+  }
 }
 
 function moveCursor(dir) {
@@ -198,22 +247,31 @@ function handleSelect() {
 function handleContinue() {
   const output = getOutput();
 
-  end(`${output}\n`);
+  end(output);
 }
 
 function getOutput() {
   if (OPT_OUTPUT_INDEX) {
     if (OPT_MULTILINE) {
-      return Object.entries(multiSelectedOptions)
+      const entries = Object.entries(multiSelectedOptions)
         .filter(([key, value]) => value)
-        .map(([key, value]) => key)
-        .join('\n');
+        .map(([key, value]) => key);
+      if (CALLED_VIA_CLI) {
+        return entries.join('\n');
+      } else {
+        return entries;
+      }
     } else {
       return selected;
     }
   } else {
     if (OPT_MULTILINE) {
-      return options.filter((o, i) => !!multiSelectedOptions[i]).join('\n');
+      const entries = options.filter((o, i) => !!multiSelectedOptions[i]);
+      if (CALLED_VIA_CLI) {
+        return entries.join('\n');
+      } else {
+        return entries;
+      }
     } else {
       return options[selected];
     }

@@ -20,7 +20,7 @@ Via yarn
 yarn global add seline
 ```
 
-## Examples
+## CLI Examples
 
 Here are some example applications that I have been using
 
@@ -40,4 +40,26 @@ $ git branch --sort=-committerdate | grep -v '*' | seline | xargs git checkout
 
 ```bash
 git branch | seline | xargs git log --oneline | seline -m | awk '{print $1}' | tail -r | xargs git cherry-pick
+```
+
+## Programmatic Examples
+
+`seline` can also be required and used programmatically.  Results are returned as a promise.
+
+> `seline(choices, options)`
+
+* `choices` required; an array of strings that are presented for selection
+* `options` optional; a dict of configuration options
+
+option | type | default | description
+---|---|---|---
+`multiline` | _boolean_ | `false` | enable multiple line selection 
+`outputIndex` | _boolean_ | `false` | output line index instead of line
+
+```javascript
+const seline = require('seline');
+
+async function main() {
+  const results = await seline(['a', 'b', 'c'], { multiline: true });
+}
 ```
