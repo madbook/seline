@@ -67,11 +67,30 @@ const getRows = () => ttyout.rows || process.stdout.rows || 10;
 const getCols = () => ttyout.columns || process.stdout.columns || 50;
 const getAction = (str, key) => ACTIONS[key.name] || ACTIONS[str];
 
-const yellowBold = text => `\x1b[1m\x1b[33m${text}\x1b[0m`;
-const yellow = text => `\x1b[33m${text}\x1b[0m`;
-const bold = text => `\x1b[1m${text}\x1b[22m`;
-const clearStyle = text => `${text}\x1b[0m`;
+// https://en.wikipedia.org/wiki/ANSI_escape_code
+const AnsiColorCodes = {
+  reset: '[0m',
+  bold: '[1m',
+  black: '[30m',
+  magenta: '[35m',
+  yellow: '[33m',
+  bgMagenta: '[45m',
+  bgWhite: '[47m',
+  bgBrightMagenta: '[105m',
+  bgBrightWhite: '[107m',
+};
+
+const Style = new Proxy(AnsiColorCodes, {
+  get(target, property, reciever) {
+    return `\x1b${target[property]}`;
+  },
+});
+
+const clearStyle = text => text + Style.reset;
 const id = text => text;
+const styleHighlightedSelected = text => Style.bgBrightMagenta + Style.black + text + Style.reset;
+const styleHighlighted = text => Style.bgBrightWhite + Style.black + text + Style.reset;
+const styleSelected = text => Style.magenta + text + Style.reset;
 
 let selected = 0;
 let multiSelectedOptions = {};
@@ -134,18 +153,14 @@ function writeScreen() {
 
 function formatLine(option, optionIndex) {
   const i = optionIndex + rowOffset;
-  // Determine whether to show the arrow pointing at the selected item
-  const prefix = i === selected ? yellowBold('=>') : '  ';
   // Determine how to render the option text
   const isHightlighted = i === selected;
   const isMultiSelected = multiSelectedOptions[i];
   const isBoth = isHightlighted && isMultiSelected;
   const fn = isBoth
-    ? yellowBold
-    : isHightlighted ? bold : isMultiSelected ? yellow : id;
-  const suffix = fn(`${i}: ${option.trim()}`);
-  // Concatenate the prefix and suffix
-  const line = `${prefix} ${suffix}`;
+    ? styleHighlightedSelected
+    : isHightlighted ? styleHighlighted : isMultiSelected ? styleSelected : id;
+  const line = fn(`${i}: ${option.trim()}`);
   const padding = getCols() - line.length;
 
   if (padding >= 0) {
