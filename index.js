@@ -15,6 +15,7 @@ let OPT_OUTPUT_HELP = / -h\b| --help\b/.test(fullArgs);
 let OPT_OUTPUT_INDEX = / -i\b/.test(fullArgs);
 let OPT_MULTILINE = / -m\b/.test(fullArgs);
 let OPT_OUTPUT_VERSION = / --version\b/.test(fullArgs);
+let OPT_HIDE_SELECTION_NUMBERS = / --hide-numbers\b/.test(fullArgs);
 
 if (OPT_OUTPUT_HELP) {
   process.stdout.write(`
@@ -24,22 +25,23 @@ ${ package.description }
 
 Options:
 
-  -h, --help  output help
-  -i          output line index instead of line
-  -m          enable multiple line selection
-  --version   output version
+  -h, --help      output help
+  -i              output line index instead of line
+  -m              enable multiple line selection
+  --hide-numbers  hide selection number prefix
+  --version       output version
 
 Controls:
-  up          move cursor up
-  down        move cursor down
-  q           quit / cancel
+  up              move cursor up
+  down            move cursor down
+  q               quit / cancel
 
 Controls (single mode):
-  c, enter    output highlighted line
+  c, enter        output highlighted line
 
 Controls (multi mode):
-  enter       add highlighted line to selection
-  c           output selected lines
+  enter           add highlighted line to selection
+  c               output selected lines
 `);
   return;
 }
@@ -111,6 +113,7 @@ if (CALLED_VIA_CLI) {
     if (flags) {
       if (flags.multiline) OPT_MULTILINE = flags.multiline;
       if (flags.outputIndex) OPT_OUTPUT_INDEX = flags.outputIndex;
+      if (flags.hideNumbers) OPT_HIDE_SELECTION_NUMBERS = flags.hideNumbers;
     }
 
     return new Promise((resolve, reject) => {
@@ -160,7 +163,7 @@ function formatLine(option, optionIndex) {
   const fn = isBoth
     ? styleHighlightedSelected
     : isHightlighted ? styleHighlighted : isMultiSelected ? styleSelected : id;
-  const line = fn(`${i}: ${option.trim()}`);
+  const line = OPT_HIDE_SELECTION_NUMBERS ? fn(option.trim()) : fn(`${i}: ${option.trim()}`);
   const padding = getCols() - line.length;
 
   if (padding >= 0) {
@@ -210,6 +213,7 @@ function end(output) {
     progResolve = undefined;
     OPT_MULTILINE = false;
     OPT_OUTPUT_INDEX = false;
+    OPT_HIDE_SELECTION_NUMBERS = false;
   }
 
   if (CALLED_VIA_CLI) {
