@@ -16,6 +16,7 @@ let OPT_OUTPUT_INDEX = / -i\b/.test(fullArgs);
 let OPT_MULTILINE = / -m\b/.test(fullArgs);
 let OPT_OUTPUT_VERSION = / --version\b/.test(fullArgs);
 let OPT_HIDE_SELECTION_NUMBERS = / --hide-numbers\b/.test(fullArgs);
+let OPT_PRESERVE_SELECTION_ORDER = / --preserve-order\b/.test(fullArgs);
 
 if (OPT_OUTPUT_HELP) {
   process.stdout.write(`
@@ -25,23 +26,24 @@ ${ package.description }
 
 Options:
 
-  -h, --help      output help
-  -i              output line index instead of line
-  -m              enable multiple line selection
-  --hide-numbers  hide selection number prefix
-  --version       output version
+  -h, --help        output help
+  -i                output line index instead of line
+  -m                enable multiple line selection
+  --hide-numbers    hide selection number prefix
+  --preserve-order  output lines in order of selection
+  --version         output version
 
 Controls:
-  up              move cursor up
-  down            move cursor down
-  q               quit / cancel
+  up                move cursor up
+  down              move cursor down
+  q                 quit / cancel
 
 Controls (single mode):
-  c, enter        output highlighted line
+  c, enter          output highlighted line
 
 Controls (multi mode):
-  enter           add highlighted line to selection
-  c               output selected lines
+  enter             add highlighted line to selection
+  c                 output selected lines
 `);
   return;
 }
@@ -95,6 +97,7 @@ const styleHighlighted = text => Style.bgBrightWhite + Style.black + text + Styl
 const styleSelected = text => Style.magenta + text + Style.reset;
 
 let selected = 0;
+let selectionIndex = 1;
 let multiSelectedOptions = {};
 let rowOffset = 0;
 let options;
@@ -114,6 +117,7 @@ if (CALLED_VIA_CLI) {
       if (flags.multiline) OPT_MULTILINE = flags.multiline;
       if (flags.outputIndex) OPT_OUTPUT_INDEX = flags.outputIndex;
       if (flags.hideNumbers) OPT_HIDE_SELECTION_NUMBERS = flags.hideNumbers;
+      if (flags.preserveOrder) OPT_PRESERVE_SELECTION_ORDER = flags.preserveOrder;
     }
 
     return new Promise((resolve, reject) => {
@@ -158,7 +162,7 @@ function formatLine(option, optionIndex) {
   const i = optionIndex + rowOffset;
   // Determine how to render the option text
   const isHightlighted = i === selected;
-  const isMultiSelected = multiSelectedOptions[i];
+  const isMultiSelected = !!multiSelectedOptions[i];
   const isBoth = isHightlighted && isMultiSelected;
   const fn = isBoth
     ? styleHighlightedSelected
@@ -214,6 +218,7 @@ function end(output) {
     OPT_MULTILINE = false;
     OPT_OUTPUT_INDEX = false;
     OPT_HIDE_SELECTION_NUMBERS = false;
+    OPT_PRESERVE_SELECTION_ORDER = false;
   }
 
   if (CALLED_VIA_CLI) {
@@ -258,7 +263,13 @@ function handleSelect() {
   const rows = getRows() - 2;
   const height = Math.min(options.length, rows);
 
-  multiSelectedOptions[selected] = !multiSelectedOptions[selected];
+  const isSelected = !!multiSelectedOptions[selected];
+  if (isSelected) {
+    multiSelectedOptions[selected] = 0;
+  } else {
+    multiSelectedOptions[selected] = selectionIndex;
+    selectionIndex += 1;
+  }
   readline.moveCursor(ttyout, 0, -height);
   writeScreen(options, selected, multiSelectedOptions, rowOffset);
 }
@@ -285,7 +296,18 @@ function getOutput() {
     }
   } else {
     if (OPT_MULTILINE) {
-      const entries = options.filter((o, i) => !!multiSelectedOptions[i]);
+      let entries;
+      if (OPT_PRESERVE_SELECTION_ORDER) {
+        entries = [];
+        Object.entries(multiSelectedOptions).forEach(([key, value]) => {
+          if (!value) return;
+          entries[value] = options[key];
+        });
+        entries = entries.filter(val => !!val);
+      } else {
+        entries = options.filter((o, i) => !!multiSelectedOptions[i]);
+      }
+
       if (CALLED_VIA_CLI) {
         return entries.join('\n');
       } else {

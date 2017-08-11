@@ -56,6 +56,7 @@ option | type | default | description
 `multiline` | _boolean_ | `false` | enable multiple line selection 
 `outputIndex` | _boolean_ | `false` | output line index instead of line
 `hideNumbers` | _boolean_ | `false` | hide selection number prefix
+`preserveOrder` | _boolean_ | `false` | output lines in order of selection
 
 ```javascript
 const seline = require('seline');
