@@ -170,9 +170,17 @@ function formatLine(option, optionIndex) {
   const fn = isBoth
     ? styleHighlightedSelected
     : isHightlighted ? styleHighlighted : isMultiSelected ? styleSelected : id;
-  const line = OPT_HIDE_SELECTION_NUMBERS ? fn(option.trim()) : fn(`${i}: ${option.trim()}`);
-  const padding = getCols() - line.length;
 
+  let line = option.trim();
+  if (OPT_PRESERVE_SELECTION_ORDER && isMultiSelected) {
+    line = `(${multiSelectedOptions[i]}) ${line}`;
+  }
+  if (!OPT_HIDE_SELECTION_NUMBERS) {
+    line = `${i}: ${line}`;
+  }
+  line = fn(line);
+
+  const padding = getCols() - line.length;
   if (padding >= 0) {
     // Render the full line, padding with empty space to fill the column width
     return `${line}${' '.repeat(padding)}\n`;
@@ -280,6 +288,18 @@ function handleSelect(shiftSelect) {
   }
 
   lastSelected = selected;
+
+  if (OPT_MULTILINE && OPT_PRESERVE_SELECTION_ORDER) {
+    let entries = Object.entries(multiSelectedOptions).filter(([key, val]) => !!val);
+    entries.sort((a, b) => {
+      return a[1] - b[1];
+    });
+    entries.forEach(([key], index) => {
+      multiSelectedOptions[key] = index + 1;
+    });
+    selectionIndex = entries.length + 1;
+  }
+
   readline.moveCursor(ttyout, 0, -height);
   writeScreen(options, selected, multiSelectedOptions, rowOffset);
 }
