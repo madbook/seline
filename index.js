@@ -11,12 +11,15 @@ const READING_FROM_PIPE = !process.stdin.isTTY;
 const WRITING_TO_PIPE = !process.stdout.isTTY;
 const CALLED_VIA_CLI = require.main === module;
 
+const TAB_WIDTH = 8;
+
 let OPT_OUTPUT_HELP = / -h\b| --help\b/.test(fullArgs);
 let OPT_OUTPUT_INDEX = / -i\b/.test(fullArgs);
 let OPT_MULTILINE = / -m\b/.test(fullArgs);
 let OPT_OUTPUT_VERSION = / --version\b/.test(fullArgs);
 let OPT_HIDE_SELECTION_NUMBERS = / --hide-numbers\b/.test(fullArgs);
 let OPT_PRESERVE_SELECTION_ORDER = / --preserve-order\b/.test(fullArgs);
+let OPT_COMPACT = / -c\b| --compact\b/.test(fullArgs);
 
 if (OPT_OUTPUT_HELP) {
   process.stdout.write(`
@@ -31,6 +34,7 @@ Options:
   -m                enable multiple line selection
   --hide-numbers    hide selection number prefix
   --preserve-order  output lines in order of selection
+  -c, --compact     separate options by tabs instead of newlines
   --version         output version
 
 Controls:
@@ -72,6 +76,20 @@ let ttyout;
 const getRows = () => ttyout.rows || process.stdout.rows || 10;
 const getCols = () => ttyout.columns || process.stdout.columns || 50;
 const getAction = (str, key) => ACTIONS[key.name] || ACTIONS[str];
+
+function getHeight() {
+  const rows = getRows() - 2;
+
+  if (OPT_COMPACT) {
+    const chars =
+      options.map(option => option.length + TAB_WIDTH - (option.length % TAB_WIDTH))
+             .reduce((sum, width) => sum + width);
+    const optionRows = Math.ceil(chars / getCols()) - 1;
+    return Math.min(optionRows, rows);
+  } else {
+    return Math.min(options.length, rows);
+  }
+}
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 const AnsiColorCodes = {
@@ -121,6 +139,7 @@ if (CALLED_VIA_CLI) {
       if (flags.outputIndex) OPT_OUTPUT_INDEX = flags.outputIndex;
       if (flags.hideNumbers) OPT_HIDE_SELECTION_NUMBERS = flags.hideNumbers;
       if (flags.preserveOrder) OPT_PRESERVE_SELECTION_ORDER = flags.preserveOrder;
+      if (flags.compact) OPT_COMPACT = flags.compact;
     }
 
     return new Promise((resolve, reject) => {
@@ -156,9 +175,15 @@ async function readOptions() {
 }
 
 function writeScreen() {
-  ttyout.write(
-    options.slice(rowOffset, rowOffset + getRows() - 2).map(formatLine).join('')
-  );
+  if (OPT_COMPACT) {
+    ttyout.write(
+      options.map(formatLine).join('')
+    );
+  } else {
+    ttyout.write(
+      options.slice(rowOffset, rowOffset + getRows() - 2).map(formatLine).join('')
+    );
+  }
 }
 
 function formatLine(option, optionIndex) {
@@ -172,21 +197,27 @@ function formatLine(option, optionIndex) {
     : isHightlighted ? styleHighlighted : isMultiSelected ? styleSelected : id;
 
   let line = option.trim();
-  if (OPT_PRESERVE_SELECTION_ORDER && isMultiSelected) {
-    line = `(${multiSelectedOptions[i]}) ${line}`;
+
+  if (!OPT_COMPACT) {
+    if (OPT_PRESERVE_SELECTION_ORDER && isMultiSelected) {
+      line = `(${multiSelectedOptions[i]}) ${line}`;
+    }
+    if (!OPT_HIDE_SELECTION_NUMBERS) {
+      line = `${i}: ${line}`;
+    }
   }
-  if (!OPT_HIDE_SELECTION_NUMBERS) {
-    line = `${i}: ${line}`;
-  }
+
   line = fn(line);
 
-  const padding = getCols() - line.length;
+  const terminal = OPT_COMPACT ? '\t' : '\n';
+  const padding = OPT_COMPACT ? 0 : getCols() - line.length;
+
   if (padding >= 0) {
     // Render the full line, padding with empty space to fill the column width
-    return `${line}${' '.repeat(padding)}\n`;
+    return `${line}${' '.repeat(padding)}${terminal}`;
   } else {
     // Render the line truncated, making sure to clear formatting.
-    return `${clearStyle(line.slice(0, padding))}\n`;
+    return `${clearStyle(line.slice(0, padding))}${terminal}`;
   }
 }
 
@@ -213,9 +244,11 @@ function handleInput(str, key) {
 }
 
 function end(output) {
-  const rows = getRows() - 2;
-  const height = Math.min(options.length, rows);
+  const height = getHeight();
 
+  if (OPT_COMPACT) {
+    readline.cursorTo(ttyout, 0);
+  }
   readline.moveCursor(ttyout, 0, -height);
   readline.clearScreenDown(ttyout);
 
@@ -231,6 +264,7 @@ function end(output) {
     OPT_OUTPUT_INDEX = false;
     OPT_HIDE_SELECTION_NUMBERS = false;
     OPT_PRESERVE_SELECTION_ORDER = false;
+    OPT_COMPACT = false;
   }
 
   if (CALLED_VIA_CLI) {
@@ -254,15 +288,19 @@ function moveCursor(dir) {
   }
 
   const rows = getRows() - 2;
-  const height = Math.min(options.length, rows);
+  const height = getHeight();
 
+  // TODO - scolling in COMPACT mode is probably broken
   if (dir < 0 && _selected < rowOffset) {
     rowOffset = _selected;
   } else if (dir > 0 && _selected >= rowOffset + rows) {
     rowOffset = _selected - rows + 1;
   }
-
   selected = _selected;
+
+  if (OPT_COMPACT) {
+    readline.cursorTo(ttyout, 0);
+  }
   readline.moveCursor(ttyout, 0, -height);
   writeScreen(options, selected, multiSelectedOptions, rowOffset);
 }
@@ -272,8 +310,7 @@ function handleSelect(shiftSelect) {
     return handleContinue();
   }
 
-  const rows = getRows() - 2;
-  const height = Math.min(options.length, rows);
+  height = getHeight();
 
   if (!shiftSelect || lastSelected === selected) {
     const isSelected = !!multiSelectedOptions[selected];
@@ -300,6 +337,9 @@ function handleSelect(shiftSelect) {
     selectionIndex = entries.length + 1;
   }
 
+  if (OPT_COMPACT) {
+    readline.cursorTo(ttyout, 0);
+  }
   readline.moveCursor(ttyout, 0, -height);
   writeScreen(options, selected, multiSelectedOptions, rowOffset);
 }

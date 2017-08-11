@@ -57,6 +57,7 @@ option | type | default | description
 `outputIndex` | _boolean_ | `false` | output line index instead of line
 `hideNumbers` | _boolean_ | `false` | hide selection number prefix
 `preserveOrder` | _boolean_ | `false` | output lines in order of selection
+`compact` | _boolean_ | `false` | separate options by tabs instead of newlines
 
 ```javascript
 const seline = require('seline');
