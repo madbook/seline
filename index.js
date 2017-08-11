@@ -77,7 +77,7 @@ let ttyout;
 
 const getRows = () => ttyout.rows || process.stdout.rows || 10;
 const getCols = () => ttyout.columns || process.stdout.columns || 50;
-const getAction = (str, key) => ACTIONS[key.name] || ACTIONS[str];
+const getAction = (str, key) => ACTIONS[str] || ACTIONS[key.name];
 
 function getHeight() {
   const rows = getRows() - 2;
