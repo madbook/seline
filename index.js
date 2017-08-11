@@ -39,10 +39,11 @@ Controls:
   q                 quit / cancel
 
 Controls (single mode):
-  c, enter          output highlighted line
+  c, s, enter          output highlighted line
 
 Controls (multi mode):
-  enter             add highlighted line to selection
+  s, enter          add highlighted line to selection
+                    shift + s to select range
   c                 output selected lines
 `);
   return;
@@ -59,6 +60,7 @@ const ACTIONS = {
   'up': 'cursorUp',
   'down': 'cursorDown',
   'return': 'select',
+  's': 'select',
   '\u0003': 'quit', // escape
   'q': 'quit',
   'c': 'continue',
@@ -97,6 +99,7 @@ const styleHighlighted = text => Style.bgBrightWhite + Style.black + text + Styl
 const styleSelected = text => Style.magenta + text + Style.reset;
 
 let selected = 0;
+let lastSelected = 0;
 let selectionIndex = 1;
 let multiSelectedOptions = {};
 let rowOffset = 0;
@@ -189,8 +192,9 @@ function handleInput(str, key) {
       return moveCursor(-1);
     case 'cursorDown':
       return moveCursor(1);
-    case 'select':
-      return handleSelect();
+    case 'select': {
+      return handleSelect(!!key.shift);
+    }
     case 'continue':
       return handleContinue();
     default: {
@@ -255,7 +259,7 @@ function moveCursor(dir) {
   writeScreen(options, selected, multiSelectedOptions, rowOffset);
 }
 
-function handleSelect() {
+function handleSelect(shiftSelect) {
   if (!OPT_MULTILINE) {
     return handleContinue();
   }
@@ -263,15 +267,30 @@ function handleSelect() {
   const rows = getRows() - 2;
   const height = Math.min(options.length, rows);
 
-  const isSelected = !!multiSelectedOptions[selected];
-  if (isSelected) {
-    multiSelectedOptions[selected] = 0;
+  if (!shiftSelect || lastSelected === selected) {
+    const isSelected = !!multiSelectedOptions[selected];
+    applySelection(selected, isSelected);
   } else {
-    multiSelectedOptions[selected] = selectionIndex;
-    selectionIndex += 1;
+    const isSelected = !multiSelectedOptions[lastSelected];
+    const iterDirection = selected > lastSelected ? 1 : -1;
+    for (let i = lastSelected; i !== selected; i += iterDirection) {
+      applySelection(i, isSelected);
+    }
+    applySelection(selected, isSelected);
   }
+
+  lastSelected = selected;
   readline.moveCursor(ttyout, 0, -height);
   writeScreen(options, selected, multiSelectedOptions, rowOffset);
+}
+
+function applySelection(index, isSelected) {
+  if (isSelected) {
+    multiSelectedOptions[index] = 0;
+  } else {
+    multiSelectedOptions[index] = selectionIndex;
+    selectionIndex += 1;
+  }
 }
 
 function handleContinue() {
