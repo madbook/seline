@@ -38,8 +38,8 @@ Options:
   --version         output version
 
 Controls:
-  up                move cursor up
-  down              move cursor down
+  up, left          move cursor up
+  down, right       move cursor down
   q                 quit / cancel
 
 Controls (single mode):
@@ -63,6 +63,8 @@ ${ package.version }
 const ACTIONS = {
   'up': 'cursorUp',
   'down': 'cursorDown',
+  'left': 'cursorUp',
+  'right': 'cursorDown',
   'return': 'select',
   's': 'select',
   '\u0003': 'quit', // escape
