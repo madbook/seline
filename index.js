@@ -13,15 +13,15 @@ const CALLED_VIA_CLI = require.main === module;
 
 const TAB_WIDTH = 8;
 
-let OPT_OUTPUT_HELP = / -h\b| --help\b/.test(fullArgs);
-let OPT_OUTPUT_INDEX = / -i\b/.test(fullArgs);
-let OPT_MULTILINE = / -m\b/.test(fullArgs);
-let OPT_OUTPUT_VERSION = / --version\b/.test(fullArgs);
-let OPT_HIDE_SELECTION_NUMBERS = / --hide-numbers\b/.test(fullArgs);
-let OPT_PRESERVE_SELECTION_ORDER = / --preserve-order\b/.test(fullArgs);
-let OPT_COMPACT = / -c\b| --compact\b/.test(fullArgs);
+const CLI_OPT_OUTPUT_HELP = / -h\b| --help\b/.test(fullArgs);
+const CLI_OPT_OUTPUT_INDEX = / -i\b/.test(fullArgs);
+const CLI_OPT_MULTILINE = / -m\b/.test(fullArgs);
+const CLI_OPT_OUTPUT_VERSION = / --version\b/.test(fullArgs);
+const CLI_OPT_HIDE_SELECTION_NUMBERS = / --hide-numbers\b/.test(fullArgs);
+const CLI_OPT_PRESERVE_SELECTION_ORDER = / --preserve-order\b/.test(fullArgs);
+const CLI_OPT_COMPACT = / -c\b| --compact\b/.test(fullArgs);
 
-if (OPT_OUTPUT_HELP) {
+if (CLI_OPT_OUTPUT_HELP) {
   process.stdout.write(`
 Usage: ${ package.name } [OPTIONS]
 
@@ -53,11 +53,24 @@ Controls (multi mode):
   return;
 }
 
-if (OPT_OUTPUT_VERSION) {
+if (CLI_OPT_OUTPUT_VERSION) {
   process.stdout.write(`
 ${ package.version }
 `);
   return;
+}
+
+const progOpts = {
+};
+
+function setProgramOptions(flags) {
+  flags = flags || {};
+
+  progOpts.multiline = 'multiline' in flags ? flags.multiline : CLI_OPT_MULTILINE;
+  progOpts.outputIndex = 'outputIndex' in flags ? flags.outputIndex : CLI_OPT_OUTPUT_INDEX;
+  progOpts.hideNumbers = 'hideNumbers' in flags ? flags.hideNumbers : CLI_OPT_HIDE_SELECTION_NUMBERS;
+  progOpts.preserveOrder = 'preserveOrder' in flags ? flags.preserveOrder : CLI_OPT_PRESERVE_SELECTION_ORDER;
+  progOpts.compact = 'compact' in flags ? flags.compact : CLI_OPT_COMPACT;
 }
 
 const ACTIONS = {
@@ -82,7 +95,7 @@ const getAction = (str, key) => ACTIONS[str] || ACTIONS[key.name];
 function getHeight() {
   const rows = getRows() - 2;
 
-  if (OPT_COMPACT) {
+  if (progOpts.compact) {
     const chars =
       options.map(option => option.length + TAB_WIDTH - (option.length % TAB_WIDTH))
              .reduce((sum, width) => sum + width);
@@ -127,6 +140,7 @@ let options;
 let progResolve;
 
 if (CALLED_VIA_CLI) {
+  setProgramOptions();
   cliMain();
 } else {
   module.exports = async function(passedOptions, flags) {
@@ -135,14 +149,7 @@ if (CALLED_VIA_CLI) {
     }
 
     options = passedOptions;
-
-    if (flags) {
-      if (flags.multiline) OPT_MULTILINE = flags.multiline;
-      if (flags.outputIndex) OPT_OUTPUT_INDEX = flags.outputIndex;
-      if (flags.hideNumbers) OPT_HIDE_SELECTION_NUMBERS = flags.hideNumbers;
-      if (flags.preserveOrder) OPT_PRESERVE_SELECTION_ORDER = flags.preserveOrder;
-      if (flags.compact) OPT_COMPACT = flags.compact;
-    }
+    setProgramOptions(flags);
 
     return new Promise((resolve, reject) => {
       progResolve = resolve;
@@ -177,7 +184,7 @@ async function readOptions() {
 }
 
 function writeScreen() {
-  if (OPT_COMPACT) {
+  if (progOpts.compact) {
     ttyout.write(
       options.map(formatLine).join('')
     );
@@ -200,19 +207,19 @@ function formatLine(option, optionIndex) {
 
   let line = option.trim();
 
-  if (!OPT_COMPACT) {
-    if (OPT_PRESERVE_SELECTION_ORDER && isMultiSelected) {
+  if (!progOpts.compact) {
+    if (progOpts.preserveOrder && isMultiSelected) {
       line = `(${multiSelectedOptions[i]}) ${line}`;
     }
-    if (!OPT_HIDE_SELECTION_NUMBERS) {
+    if (!progOpts.hideNumbers) {
       line = `${i}: ${line}`;
     }
   }
 
   line = fn(line);
 
-  const terminal = OPT_COMPACT ? '\t' : '\n';
-  const padding = OPT_COMPACT ? 0 : getCols() - line.length;
+  const terminal = progOpts.compact ? '\t' : '\n';
+  const padding = progOpts.compact ? 0 : getCols() - line.length;
 
   if (padding >= 0) {
     // Render the full line, padding with empty space to fill the column width
@@ -248,7 +255,7 @@ function handleInput(str, key) {
 function end(output) {
   const height = getHeight();
 
-  if (OPT_COMPACT) {
+  if (progOpts.compact) {
     readline.cursorTo(ttyout, 0);
   }
   readline.moveCursor(ttyout, 0, -height);
@@ -262,11 +269,7 @@ function end(output) {
     progResolve(output);
     options = undefined;
     progResolve = undefined;
-    OPT_MULTILINE = false;
-    OPT_OUTPUT_INDEX = false;
-    OPT_HIDE_SELECTION_NUMBERS = false;
-    OPT_PRESERVE_SELECTION_ORDER = false;
-    OPT_COMPACT = false;
+    setProgramOptions();
   }
 
   if (CALLED_VIA_CLI) {
@@ -300,7 +303,7 @@ function moveCursor(dir) {
   }
   selected = _selected;
 
-  if (OPT_COMPACT) {
+  if (progOpts.compact) {
     readline.cursorTo(ttyout, 0);
   }
   readline.moveCursor(ttyout, 0, -height);
@@ -308,7 +311,7 @@ function moveCursor(dir) {
 }
 
 function handleSelect(shiftSelect) {
-  if (!OPT_MULTILINE) {
+  if (!progOpts.multiline) {
     return handleContinue();
   }
 
@@ -328,7 +331,7 @@ function handleSelect(shiftSelect) {
 
   lastSelected = selected;
 
-  if (OPT_MULTILINE && OPT_PRESERVE_SELECTION_ORDER) {
+  if (progOpts.multiline && progOpts.preserveOrder) {
     let entries = Object.entries(multiSelectedOptions).filter(([key, val]) => !!val);
     entries.sort((a, b) => {
       return a[1] - b[1];
@@ -339,7 +342,7 @@ function handleSelect(shiftSelect) {
     selectionIndex = entries.length + 1;
   }
 
-  if (OPT_COMPACT) {
+  if (progOpts.compact) {
     readline.cursorTo(ttyout, 0);
   }
   readline.moveCursor(ttyout, 0, -height);
@@ -362,8 +365,8 @@ function handleContinue() {
 }
 
 function getOutput() {
-  if (OPT_OUTPUT_INDEX) {
-    if (OPT_MULTILINE) {
+  if (progOpts.outputIndex) {
+    if (progOpts.multiline) {
       const entries = Object.entries(multiSelectedOptions)
         .filter(([key, value]) => value)
         .map(([key, value]) => key);
@@ -376,9 +379,9 @@ function getOutput() {
       return selected;
     }
   } else {
-    if (OPT_MULTILINE) {
+    if (progOpts.multiline) {
       let entries;
-      if (OPT_PRESERVE_SELECTION_ORDER) {
+      if (progOpts.preserveOrder) {
         entries = [];
         Object.entries(multiSelectedOptions).forEach(([key, value]) => {
           if (!value) return;
