@@ -66,14 +66,14 @@ ${ package.version }
 const progOpts = {
 };
 
-function setProgramOptions(flags) {
-  flags = flags || {};
+function setProgramOptions(opts) {
+  opts = opts || {};
 
-  progOpts.multiline      = 'multiline'     in flags ? flags.multiline      : CLI_OPT_MULTILINE;
-  progOpts.outputIndex    = 'outputIndex'   in flags ? flags.outputIndex    : CLI_OPT_OUTPUT_INDEX;
-  progOpts.hideNumbers    = 'hideNumbers'   in flags ? flags.hideNumbers    : CLI_OPT_HIDE_NUMBERS;
-  progOpts.preserveOrder  = 'preserveOrder' in flags ? flags.preserveOrder  : CLI_OPT_PRESERVE_ORDER;
-  progOpts.compact        = 'compact'       in flags ? flags.compact        : CLI_OPT_COMPACT;
+  progOpts.multiline      = 'multiline'     in opts ? opts.multiline      : CLI_OPT_MULTILINE;
+  progOpts.outputIndex    = 'outputIndex'   in opts ? opts.outputIndex    : CLI_OPT_OUTPUT_INDEX;
+  progOpts.hideNumbers    = 'hideNumbers'   in opts ? opts.hideNumbers    : CLI_OPT_HIDE_NUMBERS;
+  progOpts.preserveOrder  = 'preserveOrder' in opts ? opts.preserveOrder  : CLI_OPT_PRESERVE_ORDER;
+  progOpts.compact        = 'compact'       in opts ? opts.compact        : CLI_OPT_COMPACT;
 }
 
 
@@ -103,12 +103,12 @@ function getHeight() {
 
   if (progOpts.compact) {
     const chars =
-      options.map(option => option.length + TAB_WIDTH - (option.length % TAB_WIDTH))
+      choices.map(option => option.length + TAB_WIDTH - (option.length % TAB_WIDTH))
              .reduce((sum, width) => sum + width);
     const optionRows = Math.ceil(chars / getCols()) - 1;
     return Math.min(optionRows, rows);
   } else {
-    return Math.min(options.length, rows);
+    return Math.min(choices.length, rows);
   }
 }
 
@@ -145,20 +145,20 @@ let rowOffset      = 0;
 
 let multiSelectedOptions = {};
 
-let options;
+let choices;
 let progResolve;
 
 if (CALLED_VIA_CLI) {
   setProgramOptions();
   cliMain();
 } else {
-  module.exports = async function(passedOptions, flags) {
+  module.exports = async function(passedChoices, options) {
     if (progResolve !== undefined) {
       throw new Error('seline already in use!');
     }
 
-    options = passedOptions;
-    setProgramOptions(flags);
+    choices = passedChoices;
+    setProgramOptions(options);
 
     return new Promise((resolve, reject) => {
       progResolve = resolve;
@@ -169,7 +169,7 @@ if (CALLED_VIA_CLI) {
 
 
 async function cliMain() {
-  options = await readOptions();
+  choices = await readChoices();
   main();
 }
 
@@ -182,25 +182,25 @@ function main() {
   ttyin.on('keypress', handleInput);  
 }
 
-async function readOptions() {
+async function readChoices() {
   return new Promise((resolve, reject) => {
-    const options = [];
+    const lines = [];
     const input = process.stdin;
     const rl = readline.createInterface({ input });
 
-    rl.on('line', chunk => options.push(chunk));
-    rl.on('close', () => resolve(options));
+    rl.on('line', chunk => lines.push(chunk));
+    rl.on('close', () => resolve(lines));
   });
 }
 
 function writeScreen() {
   if (progOpts.compact) {
     ttyout.write(
-      options.map(formatLine).join('')
+      choices.map(formatLine).join('')
     );
   } else {
     ttyout.write(
-      options.slice(rowOffset, rowOffset + getRows() - 2).map(formatLine).join('')
+      choices.slice(rowOffset, rowOffset + getRows() - 2).map(formatLine).join('')
     );
   }
 }
@@ -282,7 +282,7 @@ function end(output) {
     }
   } else {
     progResolve(output);
-    options = undefined;
+    choices = undefined;
     progResolve = undefined;
     setProgramOptions();
   }
@@ -301,7 +301,7 @@ function end(output) {
 }
 
 function moveCursor(dir) {
-  const _selected = Math.min(options.length - 1, Math.max(0, selected + dir));
+  const _selected = Math.min(choices.length - 1, Math.max(0, selected + dir));
 
   if (selected === _selected) {
     return;
@@ -322,7 +322,7 @@ function moveCursor(dir) {
     readline.cursorTo(ttyout, 0);
   }
   readline.moveCursor(ttyout, 0, -height);
-  writeScreen(options, selected, multiSelectedOptions, rowOffset);
+  writeScreen(choices, selected, multiSelectedOptions, rowOffset);
 }
 
 function handleSelect(shiftSelect) {
@@ -361,7 +361,7 @@ function handleSelect(shiftSelect) {
     readline.cursorTo(ttyout, 0);
   }
   readline.moveCursor(ttyout, 0, -height);
-  writeScreen(options, selected, multiSelectedOptions, rowOffset);
+  writeScreen(choices, selected, multiSelectedOptions, rowOffset);
 }
 
 function applySelection(index, isSelected) {
@@ -399,12 +399,14 @@ function getOutput() {
       if (progOpts.preserveOrder) {
         entries = [];
         Object.entries(multiSelectedOptions).forEach(([key, value]) => {
+          // key is the index of the choice
+          // value is the order of selection
           if (!value) return;
-          entries[value] = options[key];
+          entries[value] = choices[key];
         });
         entries = entries.filter(val => !!val);
       } else {
-        entries = options.filter((o, i) => !!multiSelectedOptions[i]);
+        entries = choices.filter((_, i) => !!multiSelectedOptions[i]);
       }
 
       if (CALLED_VIA_CLI) {
@@ -413,7 +415,7 @@ function getOutput() {
         return entries;
       }
     } else {
-      return options[selected];
+      return choices[selected];
     }
   }
 }
