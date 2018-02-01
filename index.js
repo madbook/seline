@@ -1,25 +1,27 @@
 #!/usr/bin/env node
-const fs = require('fs');
+const fs       = require('fs');
 const readline = require('readline');
-const tty = require('tty');
+const tty      = require('tty');
 
-const package = require('./package.json');
+const package  = require('./package.json');
 
-const fullArgs = process.argv.join(' ');
 
 const READING_FROM_PIPE = !process.stdin.isTTY;
-const WRITING_TO_PIPE = !process.stdout.isTTY;
-const CALLED_VIA_CLI = require.main === module;
+const WRITING_TO_PIPE   = !process.stdout.isTTY;
+const CALLED_VIA_CLI    = require.main === module;
 
 const TAB_WIDTH = 8;
 
-const CLI_OPT_OUTPUT_HELP = / -h\b| --help\b/.test(fullArgs);
-const CLI_OPT_OUTPUT_INDEX = / -i\b/.test(fullArgs);
-const CLI_OPT_MULTILINE = / -m\b/.test(fullArgs);
-const CLI_OPT_OUTPUT_VERSION = / --version\b/.test(fullArgs);
-const CLI_OPT_HIDE_SELECTION_NUMBERS = / --hide-numbers\b/.test(fullArgs);
-const CLI_OPT_PRESERVE_SELECTION_ORDER = / --preserve-order\b/.test(fullArgs);
-const CLI_OPT_COMPACT = / -c\b| --compact\b/.test(fullArgs);
+const fullArgs = process.argv.join(' ');
+
+const CLI_OPT_OUTPUT_HELP     = / -h\b| --help\b/     .test(fullArgs);
+const CLI_OPT_OUTPUT_INDEX    = / -i\b/               .test(fullArgs);
+const CLI_OPT_MULTILINE       = / -m\b/               .test(fullArgs);
+const CLI_OPT_OUTPUT_VERSION  = / --version\b/        .test(fullArgs);
+const CLI_OPT_HIDE_NUMBERS    = / --hide-numbers\b/   .test(fullArgs);
+const CLI_OPT_PRESERVE_ORDER  = / --preserve-order\b/ .test(fullArgs);
+const CLI_OPT_COMPACT         = / -c\b| --compact\b/  .test(fullArgs);
+
 
 if (CLI_OPT_OUTPUT_HELP) {
   process.stdout.write(`
@@ -60,37 +62,41 @@ ${ package.version }
   return;
 }
 
+
 const progOpts = {
 };
 
 function setProgramOptions(flags) {
   flags = flags || {};
 
-  progOpts.multiline = 'multiline' in flags ? flags.multiline : CLI_OPT_MULTILINE;
-  progOpts.outputIndex = 'outputIndex' in flags ? flags.outputIndex : CLI_OPT_OUTPUT_INDEX;
-  progOpts.hideNumbers = 'hideNumbers' in flags ? flags.hideNumbers : CLI_OPT_HIDE_SELECTION_NUMBERS;
-  progOpts.preserveOrder = 'preserveOrder' in flags ? flags.preserveOrder : CLI_OPT_PRESERVE_SELECTION_ORDER;
-  progOpts.compact = 'compact' in flags ? flags.compact : CLI_OPT_COMPACT;
+  progOpts.multiline      = 'multiline'     in flags ? flags.multiline      : CLI_OPT_MULTILINE;
+  progOpts.outputIndex    = 'outputIndex'   in flags ? flags.outputIndex    : CLI_OPT_OUTPUT_INDEX;
+  progOpts.hideNumbers    = 'hideNumbers'   in flags ? flags.hideNumbers    : CLI_OPT_HIDE_NUMBERS;
+  progOpts.preserveOrder  = 'preserveOrder' in flags ? flags.preserveOrder  : CLI_OPT_PRESERVE_ORDER;
+  progOpts.compact        = 'compact'       in flags ? flags.compact        : CLI_OPT_COMPACT;
 }
 
+
 const ACTIONS = {
-  'up': 'cursorUp',
-  'down': 'cursorDown',
-  'left': 'cursorUp',
-  'right': 'cursorDown',
-  'return': 'select',
-  's': 'select',
-  '\u0003': 'quit', // escape
-  'q': 'quit',
-  'c': 'continue',
+  'up'      : 'cursorUp',
+  'down'    : 'cursorDown',
+  'left'    : 'cursorUp',
+  'right'   : 'cursorDown',
+  'return'  : 'select',
+  's'       : 'select',
+  '\u0003'  : 'quit', // escape
+  'q'       : 'quit',
+  'c'       : 'continue',
 };
+
+const getAction = (str, key) => ACTIONS[str] || ACTIONS[key.name];
+
 
 let ttyin;
 let ttyout;
 
-const getRows = () => ttyout.rows || process.stdout.rows || 10;
+const getRows = () => ttyout.rows    || process.stdout.rows    || 10;
 const getCols = () => ttyout.columns || process.stdout.columns || 50;
-const getAction = (str, key) => ACTIONS[str] || ACTIONS[key.name];
 
 function getHeight() {
   const rows = getRows() - 2;
@@ -108,15 +114,15 @@ function getHeight() {
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 const AnsiColorCodes = {
-  reset: '[0m',
-  bold: '[1m',
-  black: '[30m',
-  magenta: '[35m',
-  yellow: '[33m',
-  bgMagenta: '[45m',
-  bgWhite: '[47m',
-  bgBrightMagenta: '[105m',
-  bgBrightWhite: '[107m',
+  reset           : '[0m',
+  bold            : '[1m',
+  black           : '[30m',
+  magenta         : '[35m',
+  yellow          : '[33m',
+  bgMagenta       : '[45m',
+  bgWhite         : '[47m',
+  bgBrightMagenta : '[105m',
+  bgBrightWhite   : '[107m',
 };
 
 const Style = new Proxy(AnsiColorCodes, {
@@ -125,17 +131,20 @@ const Style = new Proxy(AnsiColorCodes, {
   },
 });
 
-const clearStyle = text => text + Style.reset;
-const id = text => text;
+const id                       = text => text;
+const clearStyle               = text => text + Style.reset;
 const styleHighlightedSelected = text => Style.bgBrightMagenta + Style.black + text + Style.reset;
-const styleHighlighted = text => Style.bgBrightWhite + Style.black + text + Style.reset;
-const styleSelected = text => Style.magenta + text + Style.reset;
+const styleHighlighted         = text => Style.bgBrightWhite + Style.black + text + Style.reset;
+const styleSelected            = text => Style.magenta + text + Style.reset;
 
-let selected = 0;
-let lastSelected = 0;
+
+let selected       = 0;
+let lastSelected   = 0;
 let selectionIndex = 1;
+let rowOffset      = 0;
+
 let multiSelectedOptions = {};
-let rowOffset = 0;
+
 let options;
 let progResolve;
 
@@ -158,13 +167,14 @@ if (CALLED_VIA_CLI) {
   };
 }
 
+
 async function cliMain() {
   options = await readOptions();
   main();
 }
 
 function main() {
-  ttyin = new tty.ReadStream(fs.openSync('/dev/tty', 'r'));
+  ttyin  = new tty.ReadStream(fs.openSync('/dev/tty', 'r'));
   ttyout = new tty.WriteStream(fs.openSync('/dev/tty', 'w'));
   writeScreen();
   ttyin.setRawMode(true);
@@ -198,12 +208,17 @@ function writeScreen() {
 function formatLine(option, optionIndex) {
   const i = optionIndex + rowOffset;
   // Determine how to render the option text
-  const isHightlighted = i === selected;
+  const isHightlighted  = i === selected;
   const isMultiSelected = !!multiSelectedOptions[i];
-  const isBoth = isHightlighted && isMultiSelected;
-  const fn = isBoth
-    ? styleHighlightedSelected
-    : isHightlighted ? styleHighlighted : isMultiSelected ? styleSelected : id;
+  
+  let fn = id;
+  if (isHightlighted && isMultiSelected) {
+    fn = styleHighlighted;
+  } else if (isHightlighted) {
+    fn = styleHighlighted;
+  } else if (isMultiSelected) {
+    fn = styleSelected;
+  }
 
   let line = option.trim();
 
@@ -219,7 +234,7 @@ function formatLine(option, optionIndex) {
   line = fn(line);
 
   const terminal = progOpts.compact ? '\t' : '\n';
-  const padding = progOpts.compact ? 0 : getCols() - line.length;
+  const padding  = progOpts.compact ? 0    : getCols() - line.length;
 
   if (padding >= 0) {
     // Render the full line, padding with empty space to fill the column width
@@ -292,7 +307,7 @@ function moveCursor(dir) {
     return;
   }
 
-  const rows = getRows() - 2;
+  const rows   = getRows() - 2;
   const height = getHeight();
 
   // TODO - scolling in COMPACT mode is probably broken
@@ -321,7 +336,7 @@ function handleSelect(shiftSelect) {
     const isSelected = !!multiSelectedOptions[selected];
     applySelection(selected, isSelected);
   } else {
-    const isSelected = !multiSelectedOptions[lastSelected];
+    const isSelected    = !multiSelectedOptions[lastSelected];
     const iterDirection = selected > lastSelected ? 1 : -1;
     for (let i = lastSelected; i !== selected; i += iterDirection) {
       applySelection(i, isSelected);
