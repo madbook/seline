@@ -213,7 +213,7 @@ function formatLine(option, optionIndex) {
   
   let fn = id;
   if (isHightlighted && isMultiSelected) {
-    fn = styleHighlighted;
+    fn = styleHighlightedSelected;
   } else if (isHightlighted) {
     fn = styleHighlighted;
   } else if (isMultiSelected) {
@@ -231,17 +231,13 @@ function formatLine(option, optionIndex) {
     }
   }
 
-  line = fn(line);
-
   const terminal = progOpts.compact ? '\t' : '\n';
   const padding  = progOpts.compact ? 0    : getCols() - line.length;
 
   if (padding >= 0) {
-    // Render the full line, padding with empty space to fill the column width
-    return `${line}${' '.repeat(padding)}${terminal}`;
+    return `${fn(line)}${' '.repeat(padding)}${terminal}`;
   } else {
-    // Render the line truncated, making sure to clear formatting.
-    return `${clearStyle(line.slice(0, padding))}${terminal}`;
+    return `${fn(line.slice(0, padding - 3))}${terminal}`;
   }
 }
 
