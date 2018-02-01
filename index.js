@@ -43,6 +43,8 @@ Controls:
   up, left          move cursor up
   down, right       move cursor down
   q                 quit / cancel
+  u                 move highlighted line up
+  d                 move highlighted line down
 
 Controls (single mode):
   c, s, enter          output highlighted line
@@ -87,6 +89,8 @@ const ACTIONS = {
   '\u0003'  : 'quit', // escape
   'q'       : 'quit',
   'c'       : 'continue',
+  'u'       : 'moveUp',
+  'd'       : 'moveDown',
 };
 
 const getAction = (str, key) => ACTIONS[str] || ACTIONS[key.name];
@@ -251,6 +255,10 @@ function handleInput(str, key) {
       return moveCursor(-1);
     case 'cursorDown':
       return moveCursor(1);
+    case 'moveUp':
+      return moveSelection(-1);
+    case 'moveDown':
+      return moveSelection(1);
     case 'select': {
       return handleSelect(!!key.shift);
     }
@@ -319,6 +327,19 @@ function moveCursor(dir) {
   }
   readline.moveCursor(ttyout, 0, -height);
   writeScreen(choices, selected, multiSelectedOptions, rowOffset);
+}
+
+function moveSelection(dir) {
+  const _selected = Math.min(choices.length - 1, Math.max(0, selected + dir));
+
+  if (selected === _selected) {
+    return;
+  }
+
+  const currentValue = choices[selected];
+  choices[selected]  = choices[_selected];
+  choices[_selected] = currentValue;
+  return moveCursor(dir);
 }
 
 function handleSelect(shiftSelect) {
