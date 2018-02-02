@@ -21,7 +21,14 @@ const CLI_OPT_OUTPUT_VERSION  = / --version\b/        .test(fullArgs);
 const CLI_OPT_HIDE_NUMBERS    = / --hide-numbers\b/   .test(fullArgs);
 const CLI_OPT_PRESERVE_ORDER  = / --preserve-order\b/ .test(fullArgs);
 const CLI_OPT_COMPACT         = / -c\b| --compact\b/  .test(fullArgs);
+const CLI_OPT_SKIP_BLANKS     = / --skip-blanks\b/    .test(fullArgs);
 
+const parseArg = pattern => {
+  const res = pattern.exec(fullArgs);
+  return res ? res[1] : null;
+}
+
+const CLI_ARG_SKIP_CHAR       = parseArg(/ --skip-char=(\S)(?:\s|$)/);
 
 if (CLI_OPT_OUTPUT_HELP) {
   process.stdout.write(`
@@ -38,6 +45,9 @@ Options:
   --preserve-order  output lines in order of selection
   -c, --compact     separate options by tabs instead of newlines
   --version         output version
+  --skip-blanks     skip over empty lines
+  --skip-char=[CHARACTER]
+                    skip lines that start with CHARACTER
 
 Controls:
   up, left          move cursor up
@@ -76,6 +86,8 @@ function setProgramOptions(opts) {
   progOpts.hideNumbers    = 'hideNumbers'   in opts ? opts.hideNumbers    : CLI_OPT_HIDE_NUMBERS;
   progOpts.preserveOrder  = 'preserveOrder' in opts ? opts.preserveOrder  : CLI_OPT_PRESERVE_ORDER;
   progOpts.compact        = 'compact'       in opts ? opts.compact        : CLI_OPT_COMPACT;
+  progOpts.skipBlanks     = 'skipBlanks'    in opts ? opts.skipBlanks     : CLI_OPT_SKIP_BLANKS;
+  progOpts.skipChar       = 'skipChar'      in opts ? opts.skipChar       : CLI_ARG_SKIP_CHAR;
 }
 
 
@@ -120,6 +132,7 @@ function getHeight() {
 const AnsiColorCodes = {
   reset           : '[0m',
   bold            : '[1m',
+  faint           : '[2m',
   black           : '[30m',
   magenta         : '[35m',
   yellow          : '[33m',
@@ -140,9 +153,9 @@ const clearStyle               = text => text + Style.reset;
 const styleHighlightedSelected = text => Style.bgBrightMagenta + Style.black + text + Style.reset;
 const styleHighlighted         = text => Style.bgBrightWhite + Style.black + text + Style.reset;
 const styleSelected            = text => Style.magenta + text + Style.reset;
+const unselectableStyle        = text => Style.faint + text + Style.reset;
 
-
-let selected       = 0;
+let selected       = -1;
 let lastSelected   = 0;
 let selectionIndex = 1;
 let rowOffset      = 0;
@@ -180,7 +193,12 @@ async function cliMain() {
 function main() {
   ttyin  = new tty.ReadStream(fs.openSync('/dev/tty', 'r'));
   ttyout = new tty.WriteStream(fs.openSync('/dev/tty', 'w'));
+  // TODO - commenting this out will hide the input line, giving seline
+  // full screen while its running.  Not sure if I want this, so leaving
+  // as-is for now.
   writeScreen();
+  // Select the first item in the list
+  moveCursor(1, true);
   ttyin.setRawMode(true);
   readline.emitKeypressEvents(ttyin);
   ttyin.on('keypress', handleInput);  
@@ -215,6 +233,8 @@ function formatLine(option, optionIndex) {
   const isHightlighted  = i === selected;
   const isMultiSelected = !!multiSelectedOptions[i];
   
+  let line = option.trim();
+
   let fn = id;
   if (isHightlighted && isMultiSelected) {
     fn = styleHighlightedSelected;
@@ -222,9 +242,9 @@ function formatLine(option, optionIndex) {
     fn = styleHighlighted;
   } else if (isMultiSelected) {
     fn = styleSelected;
+  } else if (shouldSkipLine(line)) {
+    fn = unselectableStyle;
   }
-
-  let line = option.trim();
 
   if (!progOpts.compact) {
     if (progOpts.preserveOrder && isMultiSelected) {
@@ -252,9 +272,9 @@ function handleInput(str, key) {
     case 'quit':
       return end();
     case 'cursorUp':
-      return moveCursor(-1);
+      return moveCursor(-1, true);
     case 'cursorDown':
-      return moveCursor(1);
+      return moveCursor(1, true);
     case 'moveUp':
       return moveSelection(-1);
     case 'moveDown':
@@ -304,10 +324,31 @@ function end(output) {
   }
 }
 
-function moveCursor(dir) {
-  const _selected = Math.min(choices.length - 1, Math.max(0, selected + dir));
+function shouldSkipLine(line) {
+  if (progOpts.skipBlanks && line === '') {
+    return true;
+  } else if (progOpts.skipChar === line[0]) {
+    return true;
+  }
+  return false;
+}
 
-  if (selected === _selected) {
+function moveCursor(dir, doRecursiveMove) {
+  const _selected = selected + dir;
+
+  if (_selected < 0 || _selected >= choices.length) {
+    return;
+  }
+
+  if (shouldSkipLine(choices[_selected])) {
+    if (doRecursiveMove) {
+      return moveCursor(dir + (dir < 0 ? -1 : 1), doRecursiveMove);
+    } else {
+      return;
+    }
+  }
+
+  if (_selected === selected) {
     return;
   }
 
