@@ -233,7 +233,7 @@ function formatLine(option, optionIndex) {
   const isHightlighted  = i === selected;
   const isMultiSelected = !!multiSelectedOptions[i];
   
-  let line = option.trim();
+  let line = option.trimRight();
 
   let fn = id;
   if (isHightlighted && isMultiSelected) {
