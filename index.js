@@ -42,6 +42,7 @@ Options:
 
   -h, --help        output help
   -i                output line index instead of line
+                    enables --lock-lines
   -m                enable multiple line selection
   --hide-numbers    hide selection number prefix
   --preserve-order  output lines in order of selection
@@ -92,7 +93,7 @@ function setProgramOptions(opts) {
   progOpts.compact        = 'compact'       in opts ? opts.compact        : CLI_OPT_COMPACT;
   progOpts.skipBlanks     = 'skipBlanks'    in opts ? opts.skipBlanks     : CLI_OPT_SKIP_BLANKS;
   progOpts.noColor        = 'noColor'       in opts ? opts.noColor        : CLI_OPT_NO_COLOR;
-  progOpts.lockLines      = 'lockLines'     in opts ? opts.lockLines      : CLI_OPT_LOCK_LINES;
+  progOpts.lockLines      = 'lockLines'     in opts ? opts.lockLines      : CLI_OPT_LOCK_LINES || CLI_OPT_OUTPUT_INDEX;
   progOpts.skipChar       = 'skipChar'      in opts ? opts.skipChar       : CLI_ARG_SKIP_CHAR;
 
   if (progOpts.noColor) {
