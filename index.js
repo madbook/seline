@@ -292,7 +292,7 @@ function formatLine(option, optionIndex) {
     fn = styleHighlighted;
   } else if (isMultiSelected) {
     fn = styleSelected;
-  } else if (shouldSkipLine(line)) {
+  } else if (isLineUnselectable(line)) {
     fn = unselectableStyle;
   }
 
@@ -375,7 +375,7 @@ function end(output) {
   }
 }
 
-function shouldSkipLine(line) {
+function isLineUnselectable(line) {
   if (progOpts.skipBlanks && line === '') {
     return true;
   } else if (progOpts.skipChar === line[0]) {
@@ -391,7 +391,7 @@ function moveCursor(dir, doRecursiveMove) {
     return;
   }
 
-  if (shouldSkipLine(choices[_selected])) {
+  if (isLineUnselectable(choices[_selected])) {
     if (doRecursiveMove) {
       return moveCursor(dir + (dir < 0 ? -1 : 1), doRecursiveMove);
     } else {
@@ -474,6 +474,10 @@ function handleSelect(shiftSelect) {
 }
 
 function applySelection(index, isSelected) {
+  if (!isSelected && isLineUnselectable(choices[index])) {
+    return;
+  }
+
   if (isSelected) {
     multiSelectedOptions[index] = 0;
   } else {
