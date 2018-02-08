@@ -22,6 +22,7 @@ const CLI_OPT_HIDE_NUMBERS    = / --hide-numbers\b/   .test(fullArgs);
 const CLI_OPT_PRESERVE_ORDER  = / --preserve-order\b/ .test(fullArgs);
 const CLI_OPT_COMPACT         = / -c\b| --compact\b/  .test(fullArgs);
 const CLI_OPT_SKIP_BLANKS     = / --skip-blanks\b/    .test(fullArgs);
+const CLI_OPT_NO_COLOR        = / --no-color\b/       .test(fullArgs);
 
 const parseArg = pattern => {
   const res = pattern.exec(fullArgs);
@@ -48,6 +49,7 @@ Options:
   --skip-blanks     skip over empty lines
   --skip-char=[CHARACTER]
                     skip lines that start with CHARACTER
+  --no-color        uses text instead of colors to show state
 
 Controls:
   up, left          move cursor up
@@ -87,7 +89,14 @@ function setProgramOptions(opts) {
   progOpts.preserveOrder  = 'preserveOrder' in opts ? opts.preserveOrder  : CLI_OPT_PRESERVE_ORDER;
   progOpts.compact        = 'compact'       in opts ? opts.compact        : CLI_OPT_COMPACT;
   progOpts.skipBlanks     = 'skipBlanks'    in opts ? opts.skipBlanks     : CLI_OPT_SKIP_BLANKS;
+  progOpts.noColor        = 'noColor'       in opts ? opts.noColor        : CLI_OPT_NO_COLOR;
   progOpts.skipChar       = 'skipChar'      in opts ? opts.skipChar       : CLI_ARG_SKIP_CHAR;
+
+  if (progOpts.noColor) {
+    setNoColorStyles();
+  } else {
+    setDefaultStyles();
+  }
 }
 
 
@@ -148,12 +157,38 @@ const Style = new Proxy(AnsiColorCodes, {
   },
 });
 
-const id                       = text => text;
-const clearStyle               = text => text + Style.reset;
-const styleHighlightedSelected = text => Style.bgBrightMagenta + Style.black + text + Style.reset;
-const styleHighlighted         = text => Style.bgBrightWhite + Style.black + text + Style.reset;
-const styleSelected            = text => Style.magenta + text + Style.reset;
-const unselectableStyle        = text => Style.faint + text + Style.reset;
+const id             = text => text;
+const pinkHighlight  = text => Style.bgBrightMagenta + Style.black + text + Style.reset;
+const whiteHighlight = text => Style.bgBrightWhite + Style.black + text + Style.reset;
+const pink           = text => Style.magenta + text + Style.reset;
+const faint          = text => Style.faint + text + Style.reset;
+
+let letStyleLength;
+let styleUnselected;
+let styleHighlightedSelected;
+let styleHighlighted;
+let styleSelected;
+let unselectableStyle;
+
+function setDefaultStyles() {
+  // Important that all function here pad the line length by styleLength
+  styleLength              = 0;
+  styleUnselected          = id;
+  styleHighlightedSelected = pinkHighlight;
+  styleHighlighted         = whiteHighlight;
+  styleSelected            = pink;
+  unselectableStyle        = faint;
+}
+
+function setNoColorStyles() {
+  // Important that all functions here pad the line length by styleLength
+  styleLength              = 5;
+  styleUnselected          = text => ` [ ] ${text}`;
+  styleHighlightedSelected = text => `→[X] ${text}`;
+  styleHighlighted         = text => `→[ ] ${text}`;
+  styleSelected            = text => ` [X] ${text}`;
+  unselectableStyle        = text => faint(' --- ') + text;
+}
 
 let selected       = -1;
 let lastSelected   = 0;
@@ -235,7 +270,7 @@ function formatLine(option, optionIndex) {
   
   let line = option.trimRight();
 
-  let fn = id;
+  let fn = styleUnselected;
   if (isHightlighted && isMultiSelected) {
     fn = styleHighlightedSelected;
   } else if (isHightlighted) {
@@ -256,11 +291,12 @@ function formatLine(option, optionIndex) {
   }
 
   const terminal = progOpts.compact ? '\t' : '\n';
-  const padding  = progOpts.compact ? 0    : getCols() - line.length;
+  const padding  = progOpts.compact ? 0    : getCols() - (line.length + styleLength);
 
   if (padding >= 0) {
     return `${fn(line)}${' '.repeat(padding)}${terminal}`;
   } else {
+    // TODO: What is the -3 here???
     return `${fn(line.slice(0, padding - 3))}${terminal}`;
   }
 }

@@ -60,6 +60,7 @@ option | type | default | description
 `compact` | _boolean_ | `false` | separate options by tabs instead of newlines
 `skipBlanks` | _boolean_ | `false` | selection cursor skips empty lines
 `skipChar` | _char_ | `null` | selection cursor skips line starting with _char_
+`noColor` | _boolean_ | `false` | use extra characters to show state instead of color
 
 ```javascript
 const seline = require('seline');
