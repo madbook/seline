@@ -2,6 +2,8 @@
 
 Tool for interactively selecting input lines
 
+![Gif showing seline in use](https://thumbs.gfycat.com/LatePiercingBedbug-size_restricted.gif)
+
 > **se**(lect) **line**(s)
 
 `seline` is a command line tool for interactively selecting one (or more) lines from `stdin` and passing them to `stdout`.  It is intended to be composed with other tools.
