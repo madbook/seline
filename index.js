@@ -493,7 +493,7 @@ function getOutput() {
     if (progOpts.multiline) {
       const entries = Object.entries(multiSelectedOptions)
         .filter(([key, value]) => value)
-        .map(([key, value]) => key);
+        .map(([key, value]) => parseInt(key, 10));
       if (CALLED_VIA_CLI) {
         return entries.join('\n');
       } else {
