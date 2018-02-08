@@ -496,8 +496,10 @@ function getOutput() {
         entries = [];
         Object.entries(multiSelectedOptions)
           .forEach(([lineIndex, orderIndex]) => {
+            // value of 0 for orderIndex means it was unselected
             if (!orderIndex) return;
-            entries[orderIndex] = parseInt(lineIndex, 10);
+            // selection order is stored 1-indexed
+            entries[orderIndex - 1] = parseInt(lineIndex, 10);
           });
       } else {
         entries = Object.entries(multiSelectedOptions)
@@ -517,11 +519,11 @@ function getOutput() {
       let entries;
       if (progOpts.preserveOrder) {
         entries = [];
-        Object.entries(multiSelectedOptions).forEach(([key, value]) => {
-          // key is the index of the choice
-          // value is the order of selection
-          if (!value) return;
-          entries[value] = choices[key];
+        Object.entries(multiSelectedOptions).forEach(([lineIndex, orderIndex]) => {
+          // value of 0 for orderIndex means it was unselected
+          if (!orderIndex) return;
+          // selection order is stored 1-indexed
+          entries[orderIndex - 1] = choices[lineIndex];
         });
         entries = entries.filter(val => !!val);
       } else {
