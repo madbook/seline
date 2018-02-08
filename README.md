@@ -58,6 +58,8 @@ option | type | default | description
 `hideNumbers` | _boolean_ | `false` | hide selection number prefix
 `preserveOrder` | _boolean_ | `false` | output lines in order of selection
 `compact` | _boolean_ | `false` | separate options by tabs instead of newlines
+`skipBlanks` | _boolean_ | `false` | selection cursor skips empty lines
+`skipChar` | _char_ | `null` | selection cursor skips line starting with _char_
 
 ```javascript
 const seline = require('seline');
