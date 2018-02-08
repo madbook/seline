@@ -23,6 +23,7 @@ const CLI_OPT_PRESERVE_ORDER  = / --preserve-order\b/ .test(fullArgs);
 const CLI_OPT_COMPACT         = / -c\b| --compact\b/  .test(fullArgs);
 const CLI_OPT_SKIP_BLANKS     = / --skip-blanks\b/    .test(fullArgs);
 const CLI_OPT_NO_COLOR        = / --no-color\b/       .test(fullArgs);
+const CLI_OPT_LOCK_LINES      = / --lock-lines\b/     .test(fullArgs);
 
 const parseArg = pattern => {
   const res = pattern.exec(fullArgs);
@@ -50,6 +51,7 @@ Options:
   --skip-char=[CHARACTER]
                     skip lines that start with CHARACTER
   --no-color        uses text instead of colors to show state
+  --lock-lines      prevent use of move commands (u/d)
 
 Controls:
   up, left          move cursor up
@@ -90,6 +92,7 @@ function setProgramOptions(opts) {
   progOpts.compact        = 'compact'       in opts ? opts.compact        : CLI_OPT_COMPACT;
   progOpts.skipBlanks     = 'skipBlanks'    in opts ? opts.skipBlanks     : CLI_OPT_SKIP_BLANKS;
   progOpts.noColor        = 'noColor'       in opts ? opts.noColor        : CLI_OPT_NO_COLOR;
+  progOpts.lockLines      = 'lockLines'     in opts ? opts.lockLines      : CLI_OPT_LOCK_LINES;
   progOpts.skipChar       = 'skipChar'      in opts ? opts.skipChar       : CLI_ARG_SKIP_CHAR;
 
   if (progOpts.noColor) {
@@ -114,7 +117,18 @@ const ACTIONS = {
   'd'       : 'moveDown',
 };
 
-const getAction = (str, key) => ACTIONS[str] || ACTIONS[key.name];
+const getAction = (str, key) => {
+  const action = ACTIONS[str] || ACTIONS[key.name];
+  switch (action) {
+    case 'moveUp': // intentional
+    case 'moveDown': {
+      if (progOpts.lockLines) {
+        return;
+      }
+    }
+    default: return action;
+  }
+}
 
 
 let ttyin;

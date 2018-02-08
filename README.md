@@ -61,6 +61,7 @@ option | type | default | description
 `skipBlanks` | _boolean_ | `false` | selection cursor skips empty lines
 `skipChar` | _char_ | `null` | selection cursor skips line starting with _char_
 `noColor` | _boolean_ | `false` | use extra characters to show state instead of color
+`lockLines` | _boolean_ | `false` | prevent reordering lines with `u` and `d`
 
 ```javascript
 const seline = require('seline');
