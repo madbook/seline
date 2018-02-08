@@ -491,9 +491,19 @@ function handleContinue() {
 function getOutput() {
   if (progOpts.outputIndex) {
     if (progOpts.multiline) {
-      const entries = Object.entries(multiSelectedOptions)
-        .filter(([key, value]) => value)
-        .map(([key, value]) => parseInt(key, 10));
+      let entries;
+      if (progOpts.preserveOrder) {
+        entries = [];
+        Object.entries(multiSelectedOptions)
+          .forEach(([lineIndex, orderIndex]) => {
+            if (!orderIndex) return;
+            entries[orderIndex] = parseInt(lineIndex, 10);
+          });
+      } else {
+        entries = Object.entries(multiSelectedOptions)
+          .filter(([key, value]) => value)
+          .map(([key, value]) => parseInt(key, 10));
+      }
       if (CALLED_VIA_CLI) {
         return entries.join('\n');
       } else {
