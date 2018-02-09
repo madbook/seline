@@ -198,12 +198,21 @@ function setDefaultStyles() {
 
 function setNoColorStyles() {
   // Important that all functions here pad the line length by styleLength
-  styleLength              = 5;
-  styleUnselected          = text => ` [ ] ${text}`;
-  styleHighlightedSelected = text => `→[X] ${text}`;
-  styleHighlighted         = text => `→[ ] ${text}`;
-  styleSelected            = text => ` [X] ${text}`;
-  unselectableStyle        = text => faint(' --- ') + text;
+  if (progOpts.multiline) {
+    styleLength              = 5;
+    styleUnselected          = text => ` [ ] ${text}`;
+    styleHighlightedSelected = text => `→[X] ${text}`;
+    styleHighlighted         = text => `→[ ] ${text}`;
+    styleSelected            = text => ` [X] ${text}`;
+    unselectableStyle        = text => faint(' --- ') + text;
+  } else {
+    styleLength              = 2;
+    styleUnselected          = text => `  ${text}`;
+    styleHighlightedSelected = text => `→ ${text}`;
+    styleHighlighted         = text => `→ ${text}`;
+    styleSelected            = text => `  ${text}`;
+    unselectableStyle        = text => faint(' -') + text;
+  }
 }
 
 let selected;
