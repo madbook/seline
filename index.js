@@ -205,12 +205,20 @@ function setNoColorStyles() {
   unselectableStyle        = text => faint(' --- ') + text;
 }
 
-let selected       = -1;
-let lastSelected   = 0;
-let selectionIndex = 1;
-let rowOffset      = 0;
+let selected;
+let lastSelected;
+let selectionIndex;
+let rowOffset;
+let multiSelectedOptions;
 
-let multiSelectedOptions = {};
+function resetState() {
+  selected       = -1;
+  lastSelected   = 0;
+  selectionIndex = 1;
+  rowOffset      = 0;
+
+  multiSelectedOptions = {};
+}
 
 let choices;
 let progResolve;
@@ -224,6 +232,7 @@ if (CALLED_VIA_CLI) {
       throw new Error('seline already in use!');
     }
 
+    resetState();
     choices = passedChoices;
     setProgramOptions(options);
 
@@ -234,8 +243,8 @@ if (CALLED_VIA_CLI) {
   };
 }
 
-
 async function cliMain() {
+  resetState();
   choices = await readChoices();
   main();
 }
