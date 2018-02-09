@@ -177,6 +177,7 @@ const pinkHighlight  = text => Style.bgBrightMagenta + Style.black + text + Styl
 const whiteHighlight = text => Style.bgBrightWhite + Style.black + text + Style.reset;
 const pink           = text => Style.magenta + text + Style.reset;
 const faint          = text => Style.faint + text + Style.reset;
+const clear          = text => text + Style.reset;
 
 let letStyleLength;
 let styleUnselected;
@@ -320,8 +321,7 @@ function formatLine(option, optionIndex) {
   if (padding >= 0) {
     return `${fn(line)}${' '.repeat(padding)}${terminal}`;
   } else {
-    // TODO: What is the -3 here???
-    return `${fn(line.slice(0, padding - 3))}${terminal}`;
+    return `${clear(fn(line.slice(0, padding)))}${terminal}`;
   }
 }
 
